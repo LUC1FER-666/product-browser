@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: product-browser
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false # set this to your Neon/Supabase connection string in the Render dashboard
+      - key: NODE_VERSION
+        value: 20

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Catalog — Product Browser</title>
+<style>
+  :root {
+    --ink: #1c1b19;
+    --paper: #faf8f4;
+    --line: #e4e0d8;
+    --accent: #a8542e;
+    --accent-soft: #f1e3d9;
+    --muted: #807a6e;
+    --mono: "SF Mono", "JetBrains Mono", Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Georgia", "Iowan Old Style", serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .topbar {
+    border-bottom: 1px solid var(--line);
+    padding: 28px 32px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .brand .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .brand h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  .stats {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  .stats strong { color: var(--ink); font-weight: 600; }
+
+  .controls {
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    background: #fdfcfa;
+  }
+
+  select, button {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    padding: 9px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+
+  select:hover, button:hover { border-color: var(--accent); }
+
+  select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .activity-btn {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+    margin-left: auto;
+  }
+
+  .activity-btn:hover { background: var(--accent); border-color: var(--accent); }
+  .activity-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .toast {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .toast.show { opacity: 1; }
+
+  main { padding: 8px 32px 60px; max-width: 980px; margin: 0 auto; }
+
+  .row-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    padding: 16px 0 8px;
+    letter-spacing: 0.04em;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  thead th.num, tbody td.num { text-align: right; }
+
+  tbody tr {
+    border-bottom: 1px solid var(--line);
+    transition: background 0.15s ease;
+  }
+
+  tbody tr:hover { background: var(--accent-soft); }
+
+  tbody tr.fresh {
+    animation: flash 1.6s ease-out;
+  }
+
+  @keyframes flash {
+    0% { background: var(--accent-soft); }
+    100% { background: transparent; }
+  }
+
+  tbody td {
+    padding: 11px 12px;
+    font-size: 14.5px;
+    vertical-align: top;
+  }
+
+  td.id { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  td.category {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+  }
+  td.price { font-family: var(--mono); font-size: 13px; }
+  td.time { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  .pager {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 28px 0 8px;
+  }
+
+  .pager button {
+    padding: 10px 22px;
+  }
+  .pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .empty, .loading {
+    text-align: center;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 60px 0;
+  }
+
+  footer {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    padding: 20px;
+    border-top: 1px solid var(--line);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="eyebrow">Live Catalog</span>
+    <h1>Product Browser</h1>
+  </div>
+  <div class="stats" id="stats">loading totals…</div>
+</div>
+
+<div class="controls">
+  <select id="categorySelect">
+    <option value="">All categories</option>
+  </select>
+  <select id="pageSizeSelect">
+    <option value="20">20 / page</option>
+    <option value="50">50 / page</option>
+    <option value="100">100 / page</option>
+  </select>
+  <span class="toast" id="toast"></span>
+  <button class="activity-btn" id="activityBtn">Simulate live activity (+50 new, ~50 updated)</button>
+</div>
+
+<main>
+  <div class="row-count" id="rowCount"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Category</th>
+        <th class="num">Price</th>
+        <th class="num">ID</th>
+        <th>Created</th>
+        <th>Updated</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty" id="emptyState" style="display:none;">No products match this filter.</div>
+  <div class="pager">
+    <button id="prevBtn">← Newer</button>
+    <button id="nextBtn">Older →</button>
+  </div>
+</main>
+
+<footer>
+  Keyset (cursor) pagination over Postgres · sorted newest-first by (created_at, id) · stable under concurrent writes
+</footer>
+
+<script>
+const API = "";
+let currentCategory = "";
+let pageSize = 20;
+let cursorStack = [null]; // cursorStack[i] = cursor used to FETCH page i (null = first page)
+let pageIndex = 0;
+let nextCursor = null;
+let knownIds = new Set(); // ids we've already rendered once, for "fresh" highlight only on activity-injected rows
+
+const rowsEl = document.getElementById("rows");
+const statsEl = document.getElementById("stats");
+const rowCountEl = document.getElementById("rowCount");
+const emptyEl = document.getElementById("emptyState");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const categorySelect = document.getElementById("categorySelect");
+const pageSizeSelect = document.getElementById("pageSizeSelect");
+const activityBtn = document.getElementById("activityBtn");
+const toastEl = document.getElementById("toast");
+
+function fmtPrice(cents) {
+  return "$" + (cents / 100).toFixed(2);
+}
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+async function loadCategories() {
+  const res = await fetch(`${API}/api/categories`);
+  const data = await res.json();
+  for (const c of data.categories) {
+    const opt = document.createElement("option");
+    opt.value = c.category;
+    opt.textContent = `${c.category} (${c.count.toLocaleString()})`;
+    categorySelect.appendChild(opt);
+  }
+}
+
+async function loadStats() {
+  const url = currentCategory
+    ? `${API}/api/stats?category=${encodeURIComponent(currentCategory)}`
+    : `${API}/api/stats`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const label = data.isExact ? "" : "~";
+  statsEl.innerHTML = `<strong>${label}${Number(data.count).toLocaleString()}</strong> products total`;
+}
+
+async function fetchPage(cursor) {
+  const params = new URLSearchParams({ pageSize: String(pageSize) });
+  if (currentCategory) params.set("category", currentCategory);
+  if (cursor) params.set("cursor", cursor);
+  const res = await fetch(`${API}/api/products?${params.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch products");
+  return res.json();
+}
+
+function render(items) {
+  rowsEl.innerHTML = "";
+  emptyEl.style.display = items.length === 0 ? "block" : "none";
+
+  for (const item of items) {
+    const tr = document.createElement("tr");
+    if (!knownIds.has(item.id) && knownIds.size > 0) {
+      tr.classList.add("fresh");
+    }
+    knownIds.add(item.id);
+
+    tr.innerHTML = `
+      <td>${escapeHtml(item.name)}</td>
+      <td class="category">${escapeHtml(item.category)}</td>
+      <td class="price num">${fmtPrice(item.priceCents)}</td>
+      <td class="id num">#${item.id}</td>
+      <td class="time">${fmtTime(item.createdAt)}</td>
+      <td class="time">${fmtTime(item.updatedAt)}</td>
+    `;
+    rowsEl.appendChild(tr);
+  }
+}
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+async function goToPage(index, cursor) {
+  rowsEl.innerHTML = `<tr><td colspan="6" class="loading">loading…</td></tr>`;
+  const data = await fetchPage(cursor);
+  pageIndex = index;
+  nextCursor = data.nextCursor;
+  cursorStack[pageIndex + 1] = nextCursor;
+  render(data.items);
+
+  prevBtn.disabled = pageIndex === 0;
+  nextBtn.disabled = !data.hasMore;
+  rowCountEl.textContent = `Page ${pageIndex + 1} · showing ${data.items.length} item${data.items.length === 1 ? "" : "s"}`;
+}
+
+async function resetAndLoadFirstPage() {
+  cursorStack = [null];
+  knownIds = new Set();
+  await goToPage(0, null);
+}
+
+prevBtn.addEventListener("click", () => {
+  if (pageIndex === 0) return;
+  goToPage(pageIndex - 1, cursorStack[pageIndex - 1]);
+});
+
+nextBtn.addEventListener("click", () => {
+  goToPage(pageIndex + 1, cursorStack[pageIndex + 1]);
+});
+
+categorySelect.addEventListener("change", () => {
+  currentCategory = categorySelect.value;
+  loadStats();
+  resetAndLoadFirstPage();
+});
+
+pageSizeSelect.addEventListener("change", () => {
+  pageSize = parseInt(pageSizeSelect.value, 10);
+  resetAndLoadFirstPage();
+});
+
+activityBtn.addEventListener("click", async () => {
+  activityBtn.disabled = true;
+  activityBtn.textContent = "Working…";
+  try {
+    const res = await fetch(`${API}/api/simulate-activity`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ insertCount: 50, updateCount: 50 }),
+    });
+    const data = await res.json();
+    toastEl.textContent = `+${data.inserted} new, ${data.updated} updated just now`;
+    toastEl.classList.add("show");
+    setTimeout(() => toastEl.classList.remove("show"), 4000);
+    loadStats();
+    loadCategories(); // counts changed
+    // Re-render the CURRENT page (same cursor position) to show that
+    // browsing in place is unaffected -- this is the core guarantee.
+    await goToPage(pageIndex, cursorStack[pageIndex]);
+  } catch (e) {
+    toastEl.textContent = "Activity simulation failed.";
+    toastEl.classList.add("show");
+  } finally {
+    activityBtn.disabled = false;
+    activityBtn.textContent = "Simulate live activity (+50 new, ~50 updated)";
+  }
+});
+
+(async function init() {
+  await Promise.all([loadCategories(), loadStats()]);
+  await resetAndLoadFirstPage();
+})();
+</script>
+
+</body>
+</html>
